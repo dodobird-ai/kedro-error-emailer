@@ -1,0 +1,17 @@
+[project]
+dynamic = ["dependencies", "optional-dependencies"]
+name = "kedro-error-emailer"
+version = "0.1.0"
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["src/requirements.txt"]}
+optional-dependencies = {dev = { file = ["src/requirements.dev.txt"] }}
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[build-system]
+build-backend = 'setuptools.build_meta'
+requires = [
+    'setuptools',
+]
