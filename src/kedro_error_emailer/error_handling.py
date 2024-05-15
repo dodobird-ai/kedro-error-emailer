@@ -12,15 +12,18 @@ def error_handler(hook_func):
     @wraps(hook_func)
     def wrapper(*args, **kwargs):
         try:
+            assert (hook_func.__name__ not in ["before_node_run","on_node_error",]
+                ), f"Hook {hook_func.__name__} is not allowed to use error_handler decorator. (It will be triggered by on_pipeline_error)"
             return hook_func(*args, **kwargs)
         except Exception as e:
             hook_name = hook_func.__name__
-            hook_module = hook_func.__module__
+            assert (hook_name not in ["before_node_run","on_node_error",]
+                ), f"Hook {hook_name} is not allowed to use error_handler decorator. (It will be triggered by on_pipeline_error)"
 
+            hook_module = hook_func.__module__
             tb = traceback.TracebackException.from_exception(e)
             last_call = tb.stack[-1]
             filename = last_call.filename
-            #TODO: Raise error if the hook use where should not be used
             if hook_name == "on_pipeline_error":
                 error_details = select_arg_by_type(args, dict)
                 catalog = select_arg_by_type(args, DataCatalog)
