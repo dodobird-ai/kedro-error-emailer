@@ -8,21 +8,27 @@ import yaml
 from .email import send_email_ses
 import logging
 from typing import Any
+from .utils import select_arg_by_type, get_mailer_param
 
 logger = logging.getLogger(__name__)
+
 
 def error_handler(hook_func):
     @wraps(hook_func)
     def wrapper(*args, **kwargs):
         try:
-            assert (hook_func.__name__ not in ["before_node_run","on_node_error",]
-                ), f"Hook {hook_func.__name__} is not allowed to use error_handler decorator. (It will be triggered by on_pipeline_error)"
+            assert hook_func.__name__ not in [
+                "before_node_run",
+                "on_node_error",
+            ], f"Hook {hook_func.__name__} is not allowed to use @error_handler decorator. (It will be triggered by on_pipeline_error)"
             return hook_func(*args, **kwargs)
-        
+
         except Exception as e:
             hook_name = hook_func.__name__
-            assert (hook_name not in ["before_node_run","on_node_error",]
-                ), f"Hook {hook_name} is not allowed to use error_handler decorator. (It will be triggered by on_pipeline_error)"
+            assert hook_name not in [
+                "before_node_run",
+                "on_node_error",
+            ], f"Hook {hook_name} is not allowed to use error_handler decorator. (It will be triggered by on_pipeline_error)"
 
             params = get_mailer_param(args)
             ignore_exceptions = params["ignored_exceptions"]
@@ -37,24 +43,32 @@ def error_handler(hook_func):
             if hook_name == "on_pipeline_error":
                 error_details = select_arg_by_type(args, dict)
                 catalog = select_arg_by_type(args, DataCatalog)
-                handle_error_on_pipeline_error(e, error_details, catalog, hook_name, filename)
+                handle_error_on_pipeline_error(
+                    e, error_details, catalog, hook_name, filename
+                )
             elif hook_name == "after_pipeline_run":
-                ending_params = select_arg_by_type(args, dict, on_conflict='first')
+                ending_params = select_arg_by_type(args, dict, on_conflict="first")
                 catalog = select_arg_by_type(args, DataCatalog)
-                handle_after_pipeline_run_error(e, ending_params, catalog, hook_name, hook_module, filename)
+                handle_after_pipeline_run_error(
+                    e, ending_params, catalog, hook_name, hook_module, filename
+                )
             else:
                 context = select_arg_by_type(args, KedroContext)
                 handle_error_with_context(e, context, hook_name, hook_module)
             raise e
+
     return wrapper
 
-def handle_after_pipeline_run_error(e, ending_params, catalog: DataCatalog, hook_name: str, location: str, filename: str):
+
+def handle_after_pipeline_run_error(
+    e, ending_params, catalog: DataCatalog, hook_name: str, location: str, filename: str
+):
     local_path = catalog.load("params:local_conf_path") + "credentials.yml"
     with open(local_path, "r") as f:
         credentials = yaml.safe_load(f)
-    
-    send_to = catalog.load("params:mailer.send_to")
-    send_from = catalog.load("params:mailer.send_from")  
+
+    send_to = catalog.load("params:error_mailer.email.send_to")
+    send_from = catalog.load("params:error_mailer.email.send_from")
     mail_credentials = credentials["email_access"]
 
     hostname = socket.gethostname()
@@ -73,21 +87,31 @@ def handle_after_pipeline_run_error(e, ending_params, catalog: DataCatalog, hook
         "Location": hook_name,
         "File": filename,
         "Error": str(e),
-        "Traceback": error_traceback
+        "Traceback": error_traceback,
     }
 
     html_body = create_html_body(error_info)
-    send_email_ses(send_from, send_to, f"Pipeline Error in {project_name} - {tenant_id} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", html_body, mail_credentials, html=True)
+    send_email_ses(
+        send_from,
+        send_to,
+        f"Pipeline Error in {project_name} - {tenant_id} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        html_body,
+        mail_credentials,
+        html=True,
+    )
 
-def handle_error_on_pipeline_error(e, error_details: str, catalog: DataCatalog, hook_name: str, filename: str):
+
+def handle_error_on_pipeline_error(
+    e, error_details: str, catalog: DataCatalog, hook_name: str, filename: str
+):
     local_path = error_details["extra_params"]["local_conf_path"] + "credentials.yml"
     with open(local_path, "r") as f:
         credentials = yaml.safe_load(f)
 
     catalog_extracted = catalog.load("parameters")
 
-    send_to = catalog_extracted["mailer"]["send_to"]
-    send_from = catalog_extracted["mailer"]["send_from"]  
+    send_to = catalog_extracted["error_mailer"]["email"]["send_to"]
+    send_from = catalog_extracted["error_mailer"]["email"]["send_from"]
     mail_credentials = credentials["email_access"]
 
     hostname = socket.gethostname()
@@ -106,15 +130,23 @@ def handle_error_on_pipeline_error(e, error_details: str, catalog: DataCatalog, 
         "File": filename,
         "Location": hook_name,
         "Error": str(e),
-        "Traceback": error_traceback
+        "Traceback": error_traceback,
     }
 
     html_body = create_html_body(error_info)
-    send_email_ses(send_from, send_to, f"Pipeline Error in {project_name} - {tenant_id} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", html_body, mail_credentials, html=True)
+    send_email_ses(
+        send_from,
+        send_to,
+        f"Pipeline Error in {project_name} - {tenant_id} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        html_body,
+        mail_credentials,
+        html=True,
+    )
+
 
 def handle_error_with_context(e, context: KedroContext, hook_name: str, location: str):
-    send_to = context.params["mailer"]["send_to"]
-    send_from = context.params["mailer"]["send_from"]  
+    send_to = context.params["error_mailer"]["email"]["send_to"]
+    send_from = context.params["error_mailer"]["email"]["send_from"]
     mail_credentials = context._get_config_credentials()["email_access"]
 
     hostname = socket.gethostname()
@@ -133,11 +165,19 @@ def handle_error_with_context(e, context: KedroContext, hook_name: str, location
         "Location": location,
         "Function": hook_name,
         "Error": str(e),
-        "Traceback": error_traceback
+        "Traceback": error_traceback,
     }
 
     html_body = create_html_body(error_info)
-    send_email_ses(send_from, send_to, f"Pipeline Error in {project_name} - {tenant_id} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", html_body, mail_credentials, html=True)
+    send_email_ses(
+        send_from,
+        send_to,
+        f"Pipeline Error in {project_name} - {tenant_id} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        html_body,
+        mail_credentials,
+        html=True,
+    )
+
 
 def create_html_body(error_info: dict):
     rows = "".join(
@@ -166,55 +206,3 @@ def create_html_body(error_info: dict):
     </html>
     """
     return html_content
-    
-    
-def select_arg_by_type(args, arg_type, on_conflict='raise'):
-    """
-    Selects an argument of the specified type from the list of arguments.
-    Handles conflicts based on the specified strategy.
-
-    Args:
-        args (list): List of arguments.
-        arg_type (type): The type to search for in the arguments.
-        on_conflict (str): Strategy to handle conflicts. Options are 'raise', 'first', 'last'.
-
-    Returns:
-        The argument of the specified type.
-
-    Raises:
-        ValueError: If there are multiple arguments of the specified type and on_conflict is 'raise'.
-        TypeError: If no argument of the specified type is found.
-    """
-    selected_args = [arg for arg in args if isinstance(arg, arg_type)]
-
-    if not selected_args:
-        raise TypeError(f"No argument of type {arg_type.__name__} found.")
-
-    if len(selected_args) > 1:
-        if on_conflict == 'raise':
-            raise ValueError(f"Multiple arguments of type {arg_type.__name__} found.")
-        elif on_conflict == 'first':
-            return selected_args[0]
-        elif on_conflict == 'last':
-            return selected_args[-1]
-        else:
-            raise ValueError(f"Invalid on_conflict value: {on_conflict}")
-
-    return selected_args[0]
-
-
-def get_mailer_param(args) -> dict[str, Any]:
-    source = None
-    for type in [KedroContext, DataCatalog]:
-        try:
-            source = select_arg_by_type(args, type, on_conflict="first")
-            break
-        except Exception:
-            continue
-    
-    assert source, "No KedroContext or DataCatalog found in arguments"
-
-    if source.__class__.__name__ == "KedroContext":
-        return source.params["error_mailer"]
-    elif source.__class__.__name__ == "DataCatalog":
-        return source.load("params:error_mailer")

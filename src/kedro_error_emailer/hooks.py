@@ -4,6 +4,7 @@ from kedro.io import DataCatalog
 from kedro.framework.hooks import hook_impl
 from .error_handling import error_handler, handle_error_on_pipeline_error
 
+
 class MailerHook:
     @hook_impl
     def on_pipeline_error(
@@ -13,4 +14,10 @@ class MailerHook:
         pipeline: Pipeline,
         catalog: DataCatalog,
     ):
-        handle_error_on_pipeline_error(error.args[0], run_params, catalog, "on_pipeline_error", "pipeline_verification_hooks")
+        handle_error_on_pipeline_error(
+            error.args[0],
+            run_params,
+            catalog,
+            "on_pipeline_error",
+            "pipeline_verification_hooks",
+        )
