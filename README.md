@@ -72,3 +72,12 @@ send_from | The email address from which the error notification will be send.
 send_to | A list of email addresses that will receive the error notifications.
 ignored_exceptions | A list of exception type names (as strings) that should be ignored and not trigger an email notification.
 
+### 5. AWS SES email credential setup
+Add to your `credential.yml` your aws ses credentials under the `email_access` tag. Example:
+```yaml
+prod_access:
+  client_kwargs: 
+    aws_access_key_id: "####################"
+    aws_secret_access_key: "########################################"
+    region_name: "#############"
+```
