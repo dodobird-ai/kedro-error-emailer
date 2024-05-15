@@ -6,8 +6,11 @@ from kedro.io import DataCatalog
 from kedro.framework.context import KedroContext
 import yaml
 from .email import send_email_ses
+import logging
+from typing import Any
 
-#TODO: Add error type to ignore from the mailing in the catalog
+logger = logging.getLogger(__name__)
+
 def error_handler(hook_func):
     @wraps(hook_func)
     def wrapper(*args, **kwargs):
@@ -15,10 +18,17 @@ def error_handler(hook_func):
             assert (hook_func.__name__ not in ["before_node_run","on_node_error",]
                 ), f"Hook {hook_func.__name__} is not allowed to use error_handler decorator. (It will be triggered by on_pipeline_error)"
             return hook_func(*args, **kwargs)
+        
         except Exception as e:
             hook_name = hook_func.__name__
             assert (hook_name not in ["before_node_run","on_node_error",]
                 ), f"Hook {hook_name} is not allowed to use error_handler decorator. (It will be triggered by on_pipeline_error)"
+
+            params = get_mailer_param(args)
+            ignore_exceptions = params["ignored_exceptions"]
+            if e.__class__.__name__ in ignore_exceptions:
+                logger.warning(f"Ignoring mailing for {e.__class__.__name__} error.")
+                raise e
 
             hook_module = hook_func.__module__
             tb = traceback.TracebackException.from_exception(e)
@@ -191,3 +201,20 @@ def select_arg_by_type(args, arg_type, on_conflict='raise'):
             raise ValueError(f"Invalid on_conflict value: {on_conflict}")
 
     return selected_args[0]
+
+
+def get_mailer_param(args) -> dict[str, Any]:
+    source = None
+    for type in [KedroContext, DataCatalog]:
+        try:
+            source = select_arg_by_type(args, type, on_conflict="first")
+            break
+        except Exception:
+            continue
+    
+    assert source, "No KedroContext or DataCatalog found in arguments"
+
+    if source.__class__.__name__ == "KedroContext":
+        return source.params["error_mailer"]
+    elif source.__class__.__name__ == "DataCatalog":
+        return source.load("params:error_mailer")
