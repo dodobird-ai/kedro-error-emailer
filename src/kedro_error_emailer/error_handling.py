@@ -8,7 +8,7 @@ import yaml
 from .email import send_email_ses
 import logging
 from typing import Any
-from .utils import select_arg_by_type, get_mailer_param
+from .utils import select_arg_by_type, get_mailer_param, generate_error_info
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 def error_handler(hook_func):
     @wraps(hook_func)
     def wrapper(*args, **kwargs):
+        #TODO: replace assert with ValueError
         try:
             assert hook_func.__name__ not in [
                 "before_node_run",
@@ -63,38 +64,40 @@ def error_handler(hook_func):
 def handle_after_pipeline_run_error(
     e, ending_params, catalog: DataCatalog, hook_name: str, location: str, filename: str
 ):
+    #TODO: To be moved in .env to encrypt with sops
     local_path = catalog.load("params:local_conf_path") + "credentials.yml"
     with open(local_path, "r") as f:
         credentials = yaml.safe_load(f)
 
-    send_to = catalog.load("params:error_mailer.email.send_to")
-    send_from = catalog.load("params:error_mailer.email.send_from")
+    send_to = catalog.load("params:error_mailer.email.send_to")  # ["error_mailer"]["send_to"]
+    send_from = catalog.load("params:error_mailer.email.send_from")  # ["error_mailer"]["send_from"]
     mail_credentials = credentials["email_access"]
 
     hostname = socket.gethostname()
     error_traceback = traceback.format_exc()
-    tenant_id = catalog.load("params:tenant_id")
     runtime_params = ending_params["extra_params"]
-    env = ending_params["env"]
     project_name = location.split(".")[0]
+    env = ending_params["env"]
 
-    error_info = {
-        "Tenant ID": tenant_id,
+    hook_info_extracted = {
         "Host Name": hostname,
         "Pipeline Name": project_name,
         "Runtime Parameters": runtime_params,
         "Environment": env,
-        "Location": hook_name,
+        "Hook Name": hook_name,
         "File": filename,
         "Error": str(e),
         "Traceback": error_traceback,
     }
 
-    html_body = create_html_body(error_info)
+    email_data = generate_error_info(catalog, hook_info_extracted)
+
+    html_body = create_html_body(email_data)
+
     send_email_ses(
         send_from,
         send_to,
-        f"Pipeline Error in {project_name} - {tenant_id} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"Pipeline Error in {project_name} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         html_body,
         mail_credentials,
         html=True,
@@ -114,35 +117,36 @@ def handle_error_on_pipeline_error(
     send_from = catalog_extracted["error_mailer"]["email"]["send_from"]
     mail_credentials = credentials["email_access"]
 
-    hostname = socket.gethostname()
-    error_traceback = traceback.format_exc()
-    tenant_id = catalog_extracted["tenant_id"]
-    runtime_params = error_details["extra_params"]
     env = error_details["env"]
     project_name = error_details["project_path"].split("/")[-1]
+    
+    runtime_params = error_details["extra_params"]
+    error_traceback = traceback.format_exc()
+    hostname = socket.gethostname()
 
-    error_info = {
-        "Tenant ID": tenant_id,
+    hook_info_extracted = {
         "Host Name": hostname,
         "Pipeline Name": project_name,
         "Runtime Parameters": runtime_params,
         "Environment": env,
         "File": filename,
-        "Location": hook_name,
+        "Hook Name": hook_name,
         "Error": str(e),
         "Traceback": error_traceback,
     }
 
-    html_body = create_html_body(error_info)
+    email_data = generate_error_info(catalog, hook_info_extracted)
+
+    html_body = create_html_body(email_data)
+
     send_email_ses(
         send_from,
         send_to,
-        f"Pipeline Error in {project_name} - {tenant_id} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"Pipeline Error in {project_name} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         html_body,
         mail_credentials,
         html=True,
     )
-
 
 def handle_error_with_context(e, context: KedroContext, hook_name: str, location: str):
     send_to = context.params["error_mailer"]["email"]["send_to"]
@@ -151,32 +155,34 @@ def handle_error_with_context(e, context: KedroContext, hook_name: str, location
 
     hostname = socket.gethostname()
     error_traceback = traceback.format_exc()
-    tenant_id = context.params["tenant_id"]
     runtime_params = context.config_loader.runtime_params
-    env = context._env
     project_name = str(context.project_path).split("/")[-1]
+    env = context._env
 
-    error_info = {
-        "Tenant ID": tenant_id,
+    hook_info_extracted = {
         "Host Name": hostname,
         "Pipeline Name": project_name,
         "Runtime Parameters": runtime_params,
         "Environment": env,
-        "Location": location,
+        "Hook Name": location,
         "Function": hook_name,
         "Error": str(e),
         "Traceback": error_traceback,
     }
 
-    html_body = create_html_body(error_info)
+    mail_data = generate_error_info(context, hook_info_extracted)
+
+    html_body = create_html_body(mail_data)
+
     send_email_ses(
         send_from,
         send_to,
-        f"Pipeline Error in {project_name} - {tenant_id} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"Pipeline Error in {project_name} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         html_body,
         mail_credentials,
         html=True,
     )
+
 
 
 def create_html_body(error_info: dict):

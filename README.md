@@ -34,7 +34,7 @@ git+ssh://git@github.com/dodobird-ai/kedro-error-emailer.git
 ### 2. Add `MailerHook` hook
 In kedro `setting.py`, import `MailerHook` with 
 ```Python
-from kedro_error_emailer.hooks import MailerHook
+from kedro_error_emailer import MailerHook
 ```
 and add it to `HOOKS` list.<br>
 
@@ -43,7 +43,7 @@ and add it to `HOOKS` list.<br>
 For the error handling to cover the already existing hook, a decorator should be add between the  `@hook_impl` and the function definition.
 Firstly import the decorator with :
 ```python
-from marketing_automation.extras.hooks.mailer_hook import error_handler
+from kedro_error_emailer import error_handler
 ```
 Now add the decorator to the hook such has :
 ```python
@@ -51,7 +51,7 @@ Now add the decorator to the hook such has :
 @error_handler
 def after_context_created(self, context: KedroContext) -> None:
 ```
-__WARNING__: Should NOT be add apply on `before_node_run` and `on_node_error` hook to avoid duplicated email, these hook are cover by the previously add `MailerHook` hook. A error will be raise if apply on these hook.
+__WARNING__: Should NOT be apply on `before_node_run` and `on_node_error` hook to avoid duplicated email, these hook are cover by the previously add `MailerHook` hook. A error will be raise if apply on these hook.
 
 ### 4. Parameters setup
 the following parameters should be add to `parameters.yml`:

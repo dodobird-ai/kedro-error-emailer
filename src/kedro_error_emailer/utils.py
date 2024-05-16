@@ -1,7 +1,9 @@
 from kedro.io import DataCatalog
 from kedro.framework.context import KedroContext
 from typing import Any  
+import logging
 
+logger = logging.getLogger(__name__)
 
 def select_arg_by_type(args, arg_type, on_conflict='raise'):
     """
@@ -23,7 +25,7 @@ def select_arg_by_type(args, arg_type, on_conflict='raise'):
     selected_args = [arg for arg in args if isinstance(arg, arg_type)]
 
     if not selected_args:
-        raise TypeError(f"No argument of type {arg_type.__name__} found.")
+     raise TypeError(f"No argument of type {arg_type.__name__} found.")
 
     if len(selected_args) > 1:
         if on_conflict == 'raise':
@@ -53,3 +55,21 @@ def get_mailer_param(args) -> dict[str, Any]:
         return source.params["error_mailer"]
     elif source.__class__.__name__ == "DataCatalog":
         return source.load("params:error_mailer")
+
+# TODO: remove param getter and move logic to generate
+def generate_error_info(parameters_source: (KedroContext|DataCatalog), hook_information: dict) -> dict:
+    
+    if parameters_source.__class__ == KedroContext:
+        additional_info = parameters_source.params["error_mailer"]["additional_info"]
+    elif parameters_source.__class__ == DataCatalog:
+        additional_info = parameters_source.load("params:error_mailer.additional_info")
+    else:
+        raise TypeError("Invalid parameters source")
+
+    extracted_params = {}
+    for key, value in additional_info.items():
+        extracted_params[key] = value
+    
+    extracted_params.update(hook_information)
+
+    return extracted_params
