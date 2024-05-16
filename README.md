@@ -65,19 +65,23 @@ error_mailer:
   ignored_exceptions:
     - EmptyDfException
     - TypeError
+  additional_info:
+    tenant_id:  "${globals:tenant_id}"
+    tenant_name: "${globals:tenant_name}"
+    marketing_automation_run:  "${globals:marketing_automation_run}"
+    output_type: "${user_logging.campaign_feeder_node.output_type}"
 ```
 Parameters | Description
 -------- | -------
 send_from | The email address from which the error notification will be send.
 send_to | A list of email addresses that will receive the error notifications.
 ignored_exceptions | A list of exception type names (as strings) that should be ignored and not trigger an email notification.
+additional_info | The list of elements which will be dynamically add to email. This field has for purpose to customize the email and insert information from the catalog into the email.
 
 ### 5. AWS SES email credential setup
-Add to your `credential.yml` your aws ses credentials under the `email_access` tag. Example:
-```yaml
-prod_access:
-  client_kwargs: 
-    aws_access_key_id: "####################"
-    aws_secret_access_key: "########################################"
-    region_name: "#############"
+Add to a `.env` your aws ses credentials as showed in this example:
+```
+MAILER_AWS_ACCESS_KEY_ID=####################
+MAILER_AWS_SECRET_ACCESS_KEY=########################################
+MAILER_REGION_NAME=#############
 ```
