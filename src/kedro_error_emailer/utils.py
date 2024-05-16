@@ -69,8 +69,9 @@ def generate_error_info(parameters_source: (KedroContext|DataCatalog), hook_info
         raise TypeError("Invalid parameters source")
 
     extracted_params = {}
-    for key, value in additional_info.items():
-        extracted_params[key] = value
+    if additional_info:
+        for key, value in additional_info.items():
+            extracted_params[key] = value
     
     extracted_params.update(hook_information)
 
