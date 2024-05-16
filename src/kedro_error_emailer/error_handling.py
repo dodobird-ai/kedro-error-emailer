@@ -8,7 +8,7 @@ import yaml
 from .email import send_email_ses
 import logging
 from typing import Any
-from .utils import select_arg_by_type, get_mailer_param, generate_error_info
+from .utils import select_arg_by_type, get_mailer_param, generate_error_info, get_email_credentials
 
 logger = logging.getLogger(__name__)
 
@@ -63,18 +63,10 @@ def error_handler(hook_func):
 def handle_after_pipeline_run_error(
     e, ending_params, catalog: DataCatalog, hook_name: str, location: str, filename: str
 ):
-    # TODO: To be moved in .env to encrypt with sops
-    local_path = catalog.load("params:local_conf_path") + "credentials.yml"
-    with open(local_path, "r") as f:
-        credentials = yaml.safe_load(f)
+    mail_credentials = get_email_credentials()
 
-    send_to = catalog.load(
-        "params:error_mailer.email.send_to"
-    )  # ["error_mailer"]["send_to"]
-    send_from = catalog.load(
-        "params:error_mailer.email.send_from"
-    )  # ["error_mailer"]["send_from"]
-    mail_credentials = credentials["email_access"]
+    send_to = catalog.load("params:error_mailer.email.send_to")
+    send_from = catalog.load("params:error_mailer.email.send_from")
 
     hostname = socket.gethostname()
     error_traceback = traceback.format_exc()
@@ -110,15 +102,12 @@ def handle_after_pipeline_run_error(
 def handle_error_on_pipeline_error(
     e, error_details: str, catalog: DataCatalog, hook_name: str, filename: str
 ):
-    local_path = error_details["extra_params"]["local_conf_path"] + "credentials.yml"
-    with open(local_path, "r") as f:
-        credentials = yaml.safe_load(f)
+    mail_credentials = get_email_credentials()
 
     catalog_extracted = catalog.load("parameters")
 
     send_to = catalog_extracted["error_mailer"]["email"]["send_to"]
     send_from = catalog_extracted["error_mailer"]["email"]["send_from"]
-    mail_credentials = credentials["email_access"]
 
     env = error_details["env"]
     project_name = error_details["project_path"].split("/")[-1]
@@ -155,7 +144,8 @@ def handle_error_on_pipeline_error(
 def handle_error_with_context(e, context: KedroContext, hook_name: str, location: str):
     send_to = context.params["error_mailer"]["email"]["send_to"]
     send_from = context.params["error_mailer"]["email"]["send_from"]
-    mail_credentials = context._get_config_credentials()["email_access"]
+
+    mail_credentials = get_email_credentials()
 
     hostname = socket.gethostname()
     error_traceback = traceback.format_exc()

@@ -2,6 +2,8 @@ from kedro.io import DataCatalog
 from kedro.framework.context import KedroContext
 from typing import Any  
 import logging
+import os
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
@@ -73,3 +75,25 @@ def generate_error_info(parameters_source: (KedroContext|DataCatalog), hook_info
     extracted_params.update(hook_information)
 
     return extracted_params
+
+
+def get_email_credentials():
+    # Load .env file
+    load_dotenv(".env")
+
+    # Get email credentials
+    aws_access_key_id = os.getenv("MAILER_AWS_ACCESS_KEY_ID")
+    aws_secret_access_key = os.getenv("MAILER_AWS_SECRET_ACCESS_KEY")
+    region_name = os.getenv("MAILER_REGION_NAME")
+
+    mail_credentials = {
+        "aws_access_key_id": aws_access_key_id,
+        "aws_secret_access_key": aws_secret_access_key,
+        "region_name": region_name,
+    }
+
+    if not all(mail_credentials.values()):
+
+        raise ValueError("Email credentials not found in .env file.")
+
+    return mail_credentials
