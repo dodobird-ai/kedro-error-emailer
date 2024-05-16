@@ -16,20 +16,19 @@ logger = logging.getLogger(__name__)
 def error_handler(hook_func):
     @wraps(hook_func)
     def wrapper(*args, **kwargs):
-        #TODO: replace assert with ValueError
         try:
-            assert hook_func.__name__ not in [
-                "before_node_run",
-                "on_node_error",
-            ], f"Hook {hook_func.__name__} is not allowed to use @error_handler decorator. (It will be triggered by on_pipeline_error)"
+            if hook_func.__name__ in ["before_node_run", "on_node_error"]:
+                raise TypeError(
+                    f"Hook {hook_func.__name__} is not allowed to use @error_handler decorator. (It will be triggered by on_pipeline_error)"
+                )
             return hook_func(*args, **kwargs)
 
         except Exception as e:
             hook_name = hook_func.__name__
-            assert hook_name not in [
-                "before_node_run",
-                "on_node_error",
-            ], f"Hook {hook_name} is not allowed to use error_handler decorator. (It will be triggered by on_pipeline_error)"
+            if hook_func.__name__ in ["before_node_run", "on_node_error"]:
+                raise TypeError(
+                    f"Hook {hook_func.__name__} is not allowed to use @error_handler decorator. (It will be triggered by on_pipeline_error)"
+                )
 
             params = get_mailer_param(args)
             ignore_exceptions = params["ignored_exceptions"]
@@ -64,13 +63,17 @@ def error_handler(hook_func):
 def handle_after_pipeline_run_error(
     e, ending_params, catalog: DataCatalog, hook_name: str, location: str, filename: str
 ):
-    #TODO: To be moved in .env to encrypt with sops
+    # TODO: To be moved in .env to encrypt with sops
     local_path = catalog.load("params:local_conf_path") + "credentials.yml"
     with open(local_path, "r") as f:
         credentials = yaml.safe_load(f)
 
-    send_to = catalog.load("params:error_mailer.email.send_to")  # ["error_mailer"]["send_to"]
-    send_from = catalog.load("params:error_mailer.email.send_from")  # ["error_mailer"]["send_from"]
+    send_to = catalog.load(
+        "params:error_mailer.email.send_to"
+    )  # ["error_mailer"]["send_to"]
+    send_from = catalog.load(
+        "params:error_mailer.email.send_from"
+    )  # ["error_mailer"]["send_from"]
     mail_credentials = credentials["email_access"]
 
     hostname = socket.gethostname()
@@ -119,7 +122,7 @@ def handle_error_on_pipeline_error(
 
     env = error_details["env"]
     project_name = error_details["project_path"].split("/")[-1]
-    
+
     runtime_params = error_details["extra_params"]
     error_traceback = traceback.format_exc()
     hostname = socket.gethostname()
@@ -147,6 +150,7 @@ def handle_error_on_pipeline_error(
         mail_credentials,
         html=True,
     )
+
 
 def handle_error_with_context(e, context: KedroContext, hook_name: str, location: str):
     send_to = context.params["error_mailer"]["email"]["send_to"]
@@ -182,7 +186,6 @@ def handle_error_with_context(e, context: KedroContext, hook_name: str, location
         mail_credentials,
         html=True,
     )
-
 
 
 def create_html_body(error_info: dict):

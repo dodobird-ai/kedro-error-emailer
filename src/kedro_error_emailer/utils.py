@@ -49,14 +49,14 @@ def get_mailer_param(args) -> dict[str, Any]:
         except Exception:
             continue
     
-    assert source, "No KedroContext or DataCatalog found in arguments"
+    if source is None:
+        raise TypeError("No KedroContext or DataCatalog found in arguments")
 
     if source.__class__.__name__ == "KedroContext":
         return source.params["error_mailer"]
     elif source.__class__.__name__ == "DataCatalog":
         return source.load("params:error_mailer")
 
-# TODO: remove param getter and move logic to generate
 def generate_error_info(parameters_source: (KedroContext|DataCatalog), hook_information: dict) -> dict:
     
     if parameters_source.__class__ == KedroContext:
