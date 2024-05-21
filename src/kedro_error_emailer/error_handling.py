@@ -17,15 +17,16 @@ def error_handler(hook_func):
     @wraps(hook_func)
     def wrapper(*args, **kwargs):
         try:
-            if hook_func.__name__ in ["before_node_run", "on_node_error"]:
+            if hook_func.__name__ in ["before_node_run", "on_node_error","after_node_run"]:
                 raise TypeError(
                     f"Hook {hook_func.__name__} is not allowed to use @error_handler decorator. (It will be triggered by on_pipeline_error)"
                 )
             return hook_func(*args, **kwargs)
 
         except Exception as e:
+            print("Error in error_handler")
             hook_name = hook_func.__name__
-            if hook_func.__name__ in ["before_node_run", "on_node_error"]:
+            if hook_func.__name__ in ["before_node_run", "on_node_error","after_node_run"]:
                 raise TypeError(
                     f"Hook {hook_func.__name__} is not allowed to use @error_handler decorator. (It will be triggered by on_pipeline_error)"
                 )
@@ -52,12 +53,52 @@ def error_handler(hook_func):
                 handle_after_pipeline_run_error(
                     e, ending_params, catalog, hook_name, hook_module, filename
                 )
+            elif hook_name in ["after_catalog_created", "before_pipeline_run"]:
+                catalog = select_arg_by_type(args, DataCatalog)
+                handle_error_with_datacataglog(
+                    e, catalog, hook_name, hook_module, filename
+                )
             else:
                 context = select_arg_by_type(args, KedroContext)
                 handle_error_with_context(e, context, hook_name, hook_module)
             raise e
 
     return wrapper
+
+def handle_error_with_datacataglog(
+    e, catalog: DataCatalog, hook_name: str, location: str, filename: str
+):
+    mail_credentials = get_email_credentials()
+
+    send_to = catalog.load("params:error_mailer.email.send_to")
+    send_from = catalog.load("params:error_mailer.email.send_from")
+    
+    hostname = socket.gethostname()
+    error_traceback = traceback.format_exc()
+    project_name = location.split(".")[0]
+
+    hook_info_extracted = {
+        "Host Name": hostname,
+        "Pipeline Name": project_name,
+        "Hook Name": hook_name,
+        "File": filename,
+        "Error": str(e),
+        "Traceback": error_traceback,
+    }
+
+    email_data = generate_error_info(catalog, hook_info_extracted)
+
+    html_body = create_html_body(email_data)
+
+    send_email_ses(
+        send_from,
+        send_to,
+        f"Pipeline Error in {project_name} at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        html_body,
+        mail_credentials,
+        html=True,
+    )
+
 
 
 def handle_after_pipeline_run_error(

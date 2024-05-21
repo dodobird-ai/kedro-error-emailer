@@ -51,7 +51,7 @@ Now add the decorator to the hook such has :
 @error_handler
 def after_context_created(self, context: KedroContext) -> None:
 ```
-__WARNING__: Should NOT be apply on `before_node_run` and `on_node_error` hook to avoid duplicated email, these hook are cover by the previously add `MailerHook` hook. A error will be raise if apply on these hook.
+__WARNING__: Should NOT be apply on `before_node_run`, `on_node_error` or `after_node_run` hook to avoid duplicated email, these hook are cover by the previously add `MailerHook` hook. A error will be raise if apply on these hook.
 
 ### 4. Parameters setup
 the following parameters should be add to `parameters.yml`:
