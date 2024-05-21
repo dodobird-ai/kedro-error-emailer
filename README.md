@@ -23,11 +23,11 @@ To deploy the kedro error emailer, follow these step:
 
 Install the `kedro_error_emailer` package by running 
 ```bash
-pip install git+ssh://git@github.com/dodobird-ai/kedro-error-emailer.git
+pip install git+https://github.com/dodobird-ai/kedro-error-emailer.git
 ```
 or by adding to your requirements.txt
 ```txt
-git+ssh://git@github.com/dodobird-ai/kedro-error-emailer.git
+git+https://github.com/dodobird-ai/kedro-error-emailer.git
 ```
 <br>
 
