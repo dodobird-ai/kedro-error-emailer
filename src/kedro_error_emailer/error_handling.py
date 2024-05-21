@@ -151,13 +151,11 @@ def handle_error_with_context(e, context: KedroContext, hook_name: str, location
     error_traceback = traceback.format_exc()
     runtime_params = context.config_loader.runtime_params
     project_name = str(context.project_path).split("/")[-1]
-    env = context._env
 
     hook_info_extracted = {
         "Host Name": hostname,
         "Pipeline Name": project_name,
         "Runtime Parameters": runtime_params,
-        "Environment": env,
         "Hook Name": location,
         "Function": hook_name,
         "Error": str(e),
