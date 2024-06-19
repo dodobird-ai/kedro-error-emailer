@@ -32,10 +32,16 @@ def error_handler(hook_func):
                 )
 
             params = get_mailer_param(args)
-            ignore_exceptions = params["ignored_exceptions"]
-            if e.__class__.__name__ in ignore_exceptions:
-                logger.warning(f"Ignoring mailing for {e.__class__.__name__} error.")
+            # Allow optional parameters, plus keeping it as None.
+            ignored_exceptions = params.get("ignored_exceptions", []) or []
+            if e.__class__.__name__ in ignored_exceptions:
+                logger.warning(
+                    f"Ignoring mailing for {e.__class__.__name__} error.")
                 raise e
+            
+            ignored_envs = params.get("ignored_envs", []) or []
+            if args[1].env in ignored_envs:
+                logger.warning(f"Ignoring mailing for {e.__class__.__name__} environment.")
 
             hook_module = hook_func.__module__
             tb = traceback.TracebackException.from_exception(e)
