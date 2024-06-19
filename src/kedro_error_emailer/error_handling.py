@@ -151,6 +151,7 @@ def handle_error_on_pipeline_error(
     send_from = catalog_extracted["error_mailer"]["email"]["send_from"]
 
     env = error_details["env"]
+    namespace = error_details.get("namespace", "None")
     project_name = error_details["project_path"].split("/")[-1]
 
     runtime_params = error_details["extra_params"]
@@ -162,6 +163,7 @@ def handle_error_on_pipeline_error(
         "Pipeline Name": project_name,
         "Runtime Parameters": runtime_params,
         "Environment": env,
+        "Namespace": namespace,
         "File": filename,
         "Hook Name": hook_name,
         "Error": str(e),
